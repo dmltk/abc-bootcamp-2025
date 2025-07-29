@@ -5,3 +5,4 @@ gtts
 pygame
 requests
 httpx
+beautifulsoup4
