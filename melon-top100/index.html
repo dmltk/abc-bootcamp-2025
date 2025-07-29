@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>멜론 TOP100 (2023-12-04)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background: #f8fafc; }
+    .song-cover { border-radius: 8px; }
+    .song-row:hover { background: #f1f3f5; }
+    .song-title { font-weight: 600; }
+    .chart-container { max-width: 600px; margin: 40px auto; }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <h1 class="mb-4 text-center">멜론 TOP100 (2023-12-04)</h1>
+    <div id="song-list" class="mb-5"></div>
+    <div class="chart-container">
+      <h4 class="mb-3 text-center">좋아요 TOP10 차트</h4>
+      <canvas id="likeChart"></canvas>
+    </div>
+  </div>
+  <script>
+    async function fetchSongs() {
+      const res = await fetch('https://pyhub.kr/melon/20231204.json');
+      return await res.json();
+    }
+
+    function createSongRow(song) {
+      const row = document.createElement('div');
+      row.className = 'row align-items-center py-2 song-row';
+      row.innerHTML = `
+        <div class="col-1"><img src="${song['커버이미지_주소']}" width="48" class="song-cover"></div>
+        <div class="col-5">
+          <a href="https://www.melon.com/song/detail.htm?songId=${song['곡일련번호']}" target="_blank" class="song-title text-decoration-none text-dark">${song['곡명']}</a><br>
+          <span class="text-secondary">${song['아티스트명']}</span>
+        </div>
+        <div class="col-3">${song['앨범명']}</div>
+        <div class="col-2">${song['좋아요'].toLocaleString()}</div>
+        <div class="col-1 text-end">${song['순위']}</div>
+      `;
+      return row;
+    }
+
+    function renderSongList(songs) {
+      const list = document.getElementById('song-list');
+      const header = document.createElement('div');
+      header.className = 'row fw-bold border-bottom pb-2 mb-2';
+      header.innerHTML = `
+        <div class="col-1">커버</div>
+        <div class="col-5">곡명 / 아티스트</div>
+        <div class="col-3">앨범</div>
+        <div class="col-2">좋아요</div>
+        <div class="col-1 text-end">순위</div>
+      `;
+      list.appendChild(header);
+      songs.forEach(song => list.appendChild(createSongRow(song)));
+    }
+
+    function renderLikeChart(songs) {
+      const top10 = [...songs].sort((a, b) => b['좋아요'] - a['좋아요']).slice(0, 10);
+      const ctx = document.getElementById('likeChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: top10.map(s => s['곡명']),
+          datasets: [{
+            label: '좋아요 수',
+            data: top10.map(s => s['좋아요']),
+            backgroundColor: '#4f8cff',
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } }
+        }
+      });
+    }
+
+    fetchSongs().then(songs => {
+      renderSongList(songs);
+      renderLikeChart(songs);
+    });
+  </script>
+</body>
+</html>
