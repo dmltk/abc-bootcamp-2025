@@ -1,0 +1,151 @@
+<!-- 통계/피드백/알림 영역 -->
+  <div id="statsBar" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white/90 shadow-lg rounded-xl px-6 py-3 flex flex-col md:flex-row items-center gap-4 z-40 max-w-2xl w-full justify-between border border-indigo-100">
+    <div id="statsText" class="text-sm text-gray-700"></div>
+    <div id="alertText" class="text-sm text-red-500 font-semibold"></div>
+  </div>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To-Do List App</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+  <div class="flex flex-1 flex-col md:flex-row max-w-6xl mx-auto mt-8 bg-white rounded-lg shadow-lg overflow-hidden">
+    <!-- Calendar Section -->
+    <aside class="w-full md:w-[480px] bg-gray-50 p-10 border-r flex flex-col items-center">
+      <div class="flex items-center justify-between mb-8 w-full max-w-xs mx-auto">
+        <button id="prevMonth" class="text-2xl font-bold px-3 py-2 hover:bg-gray-200 rounded">&#8592;</button>
+        <div id="calendarTitle" class="text-2xl font-extrabold">2025년 7월</div>
+        <button id="nextMonth" class="text-2xl font-bold px-3 py-2 hover:bg-gray-200 rounded">&#8594;</button>
+      </div>
+      <div id="calendar" class="grid grid-cols-7 gap-2 text-center text-base w-full max-w-xs mx-auto">
+        <!-- 달력 날짜가 JS로 렌더링됩니다 -->
+      </div>
+      <!-- 오늘 할 일 목록 표시 -->
+      <div id="todayTodoBox" class="mt-8 w-full max-w-xs mx-auto bg-white border rounded-lg shadow p-4">
+        <div class="font-bold text-lg mb-2 text-indigo-600">오늘 할 일</div>
+        <div id="todayTodoList" class="space-y-2 text-sm"></div>
+      </div>
+    </aside>
+    <!-- Character Section -->
+    <section class="w-full md:flex-1 flex flex-col items-center justify-center p-12">
+      <div class="mb-4">
+        <h2 class="text-3xl font-bold mb-4">나의 캐릭터</h2>
+        <div id="character" class="w-40 h-40 bg-blue-200 rounded-full flex items-center justify-center text-6xl shadow-inner">
+          🧙
+        </div>
+        <div id="characterLevel" class="mt-4 text-center text-base text-gray-600">Lv.1 (0/100 EXP)</div>
+      </div>
+      <button id="characterTab" class="mt-6 px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600">캐릭터 성장 현황 보기</button>
+      <!-- 여러 날 할 일 추가 버튼 -->
+      <button id="multiDayTodoBtn" class="mt-3 px-6 py-3 bg-indigo-500 text-white rounded hover:bg-indigo-600">여러 날에 할 일 추가</button>
+    </section>
+  </div>
+
+  <!-- 캐릭터 성장 현황 모달 -->
+  <div id="charModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-8 relative flex flex-col items-center">
+      <button id="closeCharModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+      <div id="charModalEmoji" class="text-7xl mb-4">🧙</div>
+      <div class="text-xl font-bold mb-2" id="charModalLevel">Lv.1</div>
+      <div class="text-base text-gray-600 mb-2" id="charModalExp">0 / 100 EXP</div>
+      <div class="text-sm text-gray-500 mb-4" id="charModalDesc">할 일을 완료할수록 캐릭터가 성장해요!</div>
+    </div>
+  </div>
+    </section>
+  </div>
+
+  <!-- To-Do List Modal (Popup) -->
+  <div id="todoModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden">
+      <!-- 상단 컬러 헤더 -->
+      <div class="bg-indigo-400 px-6 py-5 flex items-center justify-between">
+        <div>
+          <h3 id="modalDate" class="text-xl font-bold text-white">2025-07-30</h3>
+          <span id="taskCount" class="text-sm text-indigo-100 block mt-1">0 tasks</span>
+        </div>
+        <button id="addTodoBtn" class="w-10 h-10 rounded-full bg-white text-indigo-500 flex items-center justify-center text-3xl shadow hover:bg-indigo-100 transition-all">+</button>
+        <button id="closeModal" class="absolute top-4 right-4 text-white text-2xl hover:text-gray-200">&times;</button>
+      </div>
+      <!-- 할 일 목록 -->
+      <div id="todoList" class="px-6 py-4 min-h-[120px]">
+        <!-- 할 일 목록이 JS로 렌더링됩니다 -->
+      </div>
+      <!-- 할 일 추가 폼 -->
+      <form id="todoForm" class="px-6 pb-6 space-y-3 hidden">
+        <input type="text" id="todoTitle" class="w-full border rounded px-3 py-2" placeholder="할 일 제목" required />
+        <div class="flex items-center gap-2">
+          <label for="todoCategory" class="text-sm">카테고리:</label>
+          <select id="todoCategory" class="border rounded px-2 py-1">
+            <option value="공부">공부</option>
+            <option value="운동">운동</option>
+            <option value="업무">업무</option>
+            <option value="일상">일상</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <input type="time" id="todoStart" class="flex-1 border rounded px-2 py-1" required />
+          <span class="self-center">~</span>
+          <input type="time" id="todoEnd" class="flex-1 border rounded px-2 py-1" required />
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="todoPriority" class="text-sm">중요도:</label>
+          <select id="todoPriority" class="border rounded px-2 py-1">
+            <option value="1">낮음</option>
+            <option value="2">보통</option>
+            <option value="3">높음</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">저장</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 여러 날 할 일 추가 모달 -->
+  <div id="multiDayTodoModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative flex flex-col items-center">
+      <button id="closeMultiDayTodoModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+      <h3 class="text-xl font-bold mb-4 text-indigo-700">여러 날에 할 일 추가</h3>
+      <form id="multiDayTodoForm" class="w-full space-y-3">
+        <div class="flex gap-2">
+          <input type="date" id="multiStartDate" class="border rounded px-2 py-1 flex-1" required />
+          <span class="self-center">~</span>
+          <input type="date" id="multiEndDate" class="border rounded px-2 py-1 flex-1" required />
+        </div>
+        <input type="text" id="multiTodoTitle" class="w-full border rounded px-3 py-2" placeholder="할 일 제목" required />
+        <div class="flex gap-2">
+          <input type="time" id="multiTodoStart" class="flex-1 border rounded px-2 py-1" required />
+          <span class="self-center">~</span>
+          <input type="time" id="multiTodoEnd" class="flex-1 border rounded px-2 py-1" required />
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="multiTodoCategory" class="text-sm">카테고리:</label>
+          <select id="multiTodoCategory" class="border rounded px-2 py-1">
+            <option value="공부">공부</option>
+            <option value="운동">운동</option>
+            <option value="업무">업무</option>
+            <option value="일상">일상</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="multiTodoPriority" class="text-sm">중요도:</label>
+          <select id="multiTodoPriority" class="border rounded px-2 py-1">
+            <option value="1">낮음</option>
+            <option value="2">보통</option>
+            <option value="3">높음</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full bg-indigo-500 text-white py-2 rounded hover:bg-indigo-600">여러 날에 추가</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS 연동 -->
+  <script src="script.js"></script>
+</body>
+</html>
