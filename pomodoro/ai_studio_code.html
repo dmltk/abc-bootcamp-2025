@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뽀모도로 타이머</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js Plugins (Persist) and Core -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { background-color: #F8F9FA; font-family: 'Pretendard', sans-serif; }
+        [x-cloak] { display: none !important; } /* Alpine.js 로딩 전 깜빡임 방지 */
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <!-- 종료 알림음 오디오 태그 -->
+    <audio id="alarm-sound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+    <!-- Alpine.js 컴포넌트 시작 -->
+    <div x-data="pomodoroTimer()" x-init="init()" x-cloak class="w-full max-w-md mx-auto p-6">
+        <div class="bg-white rounded-2xl shadow-lg p-8 relative">
+
+            <!-- 타이머 디스플레이 -->
+            <div class="relative w-64 h-64 mx-auto mb-8">
+                <!-- 원형 프로그레스 바 -->
+                <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-gray-200" stroke-width="8" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
+                    <circle class="transition-all duration-500" :class="mode.color" stroke-width="8" :stroke-dasharray="circumference" :stroke-dashoffset="progress" stroke-linecap="round" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" style="transform: rotate(-90deg); transform-origin: center;"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span x-text="formattedTime" class="text-5xl font-bold text-gray-800"></span>
+                    <span x-text="mode.label" class="text-lg text-gray-500 mt-2"></span>
+                </div>
+            </div>
+
+            <!-- 컨트롤 버튼 -->
+            <div class="flex justify-center space-x-4 mb-8">
+                <button @click="toggleTimer" :class="isRunning ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-red-500 hover:bg-red-600'" class="text-white px-8 py-3 rounded-lg font-semibold shadow-md transition w-32">
+                    <span x-text="isRunning ? '일시정지' : '시작'"></span>
+                </button>
+                <button @click="resetTimer" class="bg-gray-200 text-gray-700 px-8 py-3 rounded-lg font-semibold shadow-md hover:bg-gray-300 transition">리셋</button>
+            </div>
+
+            <!-- 할 일 목록 -->
+            <div class="mt-8">
+                <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">오늘의 할 일</h2>
+                <form @submit.prevent="addTodo" class="flex mb-4">
+                    <input x-model="newTodo" type="text" placeholder="새로운 할 일 추가..." class="flex-grow p-2 border-b-2 border-gray-300 focus:border-red-500 outline-none transition">
+                    <button type="submit" class="bg-red-500 text-white px-4 py-2 ml-2 rounded-md hover:bg-red-600 transition">+</button>
+                </form>
+                <ul class="space-y-2 max-h-32 overflow-y-auto">
+                    <template x-for="(todo, index) in todos" :key="index">
+                        <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                            <span x-text="todo.text"></span>
+                            <button @click="removeTodo(index)" class="text-gray-400 hover:text-red-500">삭제</button>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+
+            <!-- 하단 메뉴 -->
+            <div class="flex justify-between items-center mt-8 pt-4 border-t">
+                <div class="text-gray-600">오늘 완료: <span x-text="stats[getTodayString()] || 0" class="font-bold"></span></div>
+                <div class="flex space-x-4">
+                    <button @click="isSoundOn = !isSoundOn" :class="isSoundOn ? 'text-red-500' : 'text-gray-400'" class="hover:text-red-600">
+                        <svg x-show="isSoundOn" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M3.88 5.88a15 15 0 0118.24 0M12 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
+                        <svg x-show="!isSoundOn" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.88 5.88a15 15 0 00-2.828 14.142A15 15 0 0018.12 21.12a14.996 14.996 0 002.828-14.142M9 9l6 6m-6 0l6-6" /></svg>
+                    </button>
+                    <button @click="showStatsModal = true" class="text-gray-500 hover:text-gray-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                    </button>
+                    <button @click="openSettingsModal" class="text-gray-500 hover:text-gray-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 설정 모달 -->
+            <div x-show="showSettingsModal" @click.away="showSettingsModal = false" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                <div @click.stop class="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm">
+                    <h3 class="text-xl font-bold mb-6 text-center">시간 설정</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="font-semibold text-gray-600">뽀모도로 (분)</label>
+                            <input x-model.number="tempSettings.pomodoro" type="number" min="1" class="w-full p-2 border rounded mt-1">
+                        </div>
+                        <div>
+                            <label class="font-semibold text-gray-600">짧은 휴식 (분)</label>
+                            <input x-model.number="tempSettings.shortBreak" type="number" min="1" class="w-full p-2 border rounded mt-1">
+                        </div>
+                        <div>
+                            <label class="font-semibold text-gray-600">긴 휴식 (분)</label>
+                            <input x-model.number="tempSettings.longBreak" type="number" min="1" class="w-full p-2 border rounded mt-1">
+                        </div>
+                    </div>
+                    <div class="mt-8 flex justify-end space-x-3">
+                        <button @click="showSettingsModal = false" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md">취소</button>
+                        <button @click="saveSettings" class="bg-red-500 text-white px-4 py-2 rounded-md">저장</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 통계 모달 -->
+            <div x-show="showStatsModal" @click.away="showStatsModal = false" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                <div @click.stop class="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm">
+                    <h3 class="text-xl font-bold mb-6 text-center">완료 기록</h3>
+                    <ul class="space-y-2 max-h-64 overflow-y-auto">
+                        <template x-for="date in Object.keys(stats).reverse()" :key="date">
+                             <li class="flex justify-between">
+                                <span x-text="date"></span>
+                                <span x-text="stats[date]" class="font-bold"></span>
+                            </li>
+                        </template>
+                         <li x-show="Object.keys(stats).length === 0" class="text-center text-gray-500">완료 기록이 없습니다.</li>
+                    </ul>
+                     <div class="mt-8 flex justify-end">
+                        <button @click="showStatsModal = false" class="bg-red-500 text-white px-4 py-2 rounded-md">닫기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function pomodoroTimer() {
+        return {
+            // Data
+            isRunning: false,
+            timer: null,
+            // $persist를 사용하여 브라우저를 닫아도 데이터가 유지되도록 설정
+            settings: Alpine.$persist({
+                pomodoro: 25, shortBreak: 10, longBreak: 30
+            }).as('pomodoro-settings'),
+            isSoundOn: Alpine.$persist(true).as('pomodoro-sound'),
+            pomodoroCount: Alpine.$persist(0).as('pomodoro-count'),
+            stats: Alpine.$persist({}).as('pomodoro-stats'),
+            todos: Alpine.$persist([]).as('pomodoro-todos'),
+            
+            currentMode: 'pomodoro',
+            currentTime: 0,
+            newTodo: '',
+            showSettingsModal: false,
+            showStatsModal: false,
+            tempSettings: { pomodoro: 25, shortBreak: 10, longBreak: 30 },
+            
+            // Methods
+            init() {
+                this.currentTime = this.settings.pomodoro * 60;
+                this.$watch('currentMode', () => this.resetTimer());
+            },
+
+            get modes() {
+                return {
+                    pomodoro: { time: this.settings.pomodoro * 60, label: '뽀모도로', color: 'text-red-500' },
+                    shortBreak: { time: this.settings.shortBreak * 60, label: '짧은 휴식', color: 'text-green-500' },
+                    longBreak: { time: this.settings.longBreak * 60, label: '긴 휴식', color: 'text-blue-500' },
+                }
+            },
+            get mode() { return this.modes[this.currentMode]; },
+            get formattedTime() {
+                const minutes = Math.floor(this.currentTime / 60);
+                const seconds = this.currentTime % 60;
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            },
+            
+            // Progress Bar
+            circumference: 2 * Math.PI * 45,
+            get progress() {
+                return this.circumference * (1 - (this.currentTime / this.mode.time));
+            },
+
+            // Timer Controls
+            toggleTimer() { this.isRunning ? this.pauseTimer() : this.startTimer(); },
+            startTimer() {
+                this.isRunning = true;
+                this.timer = setInterval(() => {
+                    if (this.currentTime > 0) {
+                        this.currentTime--;
+                    } else {
+                        this.completeSession();
+                    }
+                }, 1000);
+            },
+            pauseTimer() {
+                this.isRunning = false;
+                clearInterval(this.timer);
+            },
+            resetTimer() {
+                this.pauseTimer();
+                this.currentTime = this.mode.time;
+            },
+
+            // Session Logic
+            completeSession() {
+                this.pauseTimer();
+                if (this.isSoundOn) { document.getElementById('alarm-sound').play(); }
+                if (this.currentMode === 'pomodoro') {
+                    this.pomodoroCount++;
+                    this.recordStat();
+                    this.currentMode = (this.pomodoroCount % 4 === 0) ? 'longBreak' : 'shortBreak';
+                } else {
+                    this.currentMode = 'pomodoro';
+                }
+                // 자동 시작
+                this.$nextTick(() => this.startTimer());
+            },
+
+            // Stats
+            getTodayString() {
+                const today = new Date();
+                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            },
+            recordStat() {
+                const today = this.getTodayString();
+                if (!this.stats[today]) this.stats[today] = 0;
+                this.stats[today]++;
+            },
+
+            // Todo List
+            addTodo() {
+                if (this.newTodo.trim() === '') return;
+                this.todos.push({ text: this.newTodo.trim() });
+                this.newTodo = '';
+            },
+            removeTodo(index) { this.todos.splice(index, 1); },
+
+            // Settings Modal
+            openSettingsModal() {
+                this.tempSettings = JSON.parse(JSON.stringify(this.settings));
+                this.showSettingsModal = true;
+            },
+            saveSettings() {
+                this.settings = JSON.parse(JSON.stringify(this.tempSettings));
+                this.showSettingsModal = false;
+                if (!this.isRunning) {
+                    this.resetTimer();
+                }
+            }
+        }
+    }
+    </script>
+</body>
+</html>
